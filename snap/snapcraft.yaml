@@ -7,25 +7,16 @@ base: core20
 confinement: strict
 grade: devel
 
-apps:
-  mir-kiosk-x11-example:
-#    daemon: simple
-#    restart-condition: always
-    command-chain:
-      - env-setup
-    command: usr/local/bin/x11_kiosk_launch glxgears
-
 architectures:
   - build-on: amd64
   - build-on: arm64
   - build-on: armhf
 
-parts:
-  glxgears:
-    plugin: nil
-    stage-packages:
-      - mesa-utils
-    stage-snaps: [mir-kiosk-x11]
+plugs:
+  graphics-core20:
+    interface: content
+    target: $SNAP/graphics
+    default-provider: mesa-core20
 
 layout:
   /usr/share/X11:
@@ -39,7 +30,50 @@ layout:
   /etc/fonts:
     bind: $SNAP/etc/fonts
 
-plugs:
-  opengl:         # For Mir
-  wayland:        # For Mir
-  network-bind:   # For Mir (to serve X11)
+environment:
+  # Graphics from graphics-core20
+  LD_LIBRARY_PATH:    $SNAP/graphics/lib
+  LIBGL_DRIVERS_PATH: $SNAP/graphics/dri
+  LIBVA_DRIVERS_PATH: $SNAP/graphics/dri
+  __EGL_VENDOR_LIBRARY_DIRS: $SNAP/graphics/glvnd/egl_vendor.d
+  # XKB config from snap
+  XKB_CONFIG_ROOT: $SNAP/usr/share/X11/xkb
+
+apps:
+  mir-kiosk-x11-example:
+    command-chain: &_command-chain
+      - env-setup
+    command: &_command usr/local/bin/x11_kiosk_launch glxgears
+    plugs: &_plugs
+      - opengl         # For Mir
+      - wayland        # For Mir
+      - network-bind   # For Mir (to serve X11)
+
+  daemon:
+    daemon: simple
+    restart-delay: 3s
+    restart-condition: always
+    command-chain: *_command-chain
+    command: *_command
+    plugs: *_plugs
+
+parts:
+  glxgears:
+    plugin: nil
+    stage-packages:
+      - mesa-utils
+    stage-snaps: [mir-kiosk-x11]
+    prime:
+      - -hacks/setup-gl # Don't use the gl setup from mir-kiosk-x11, we use graphics-core20
+
+  cleanup:
+    after: [glxgears]
+    plugin: nil
+    build-snaps: [ mesa-core20 ]
+    override-prime: |
+      set -eux
+      cd /snap/mesa-core20/current/egl/lib
+      find . -type f,l -exec rm -f $SNAPCRAFT_PRIME/usr/lib/${SNAPCRAFT_ARCH_TRIPLET}/{} \;
+      rm -fr "$SNAPCRAFT_PRIME/usr/lib/${SNAPCRAFT_ARCH_TRIPLET}/dri"
+      cd "$SNAPCRAFT_PRIME/usr/share"
+      rm -rf bug drirc.d glvnd libdrm lintian man
