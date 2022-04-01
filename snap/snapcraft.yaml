@@ -29,6 +29,8 @@ layout:
     bind: $SNAP/usr/share/fonts
   /etc/fonts:
     bind: $SNAP/etc/fonts
+  /usr/lib/${SNAPCRAFT_ARCH_TRIPLET}/imlib2:
+    bind: $SNAP/usr/lib/${SNAPCRAFT_ARCH_TRIPLET}/imlib2
 
 environment:
   # Graphics from graphics-core20
@@ -57,11 +59,19 @@ apps:
     command: *_command
     plugs: *_plugs
 
+  scrot:
+    command-chain: *_command-chain
+    command: usr/bin/scrot --focused $SNAP_USER_DATA/screenshot.png
+    plugs: *_plugs
+    environment:
+      DISPLAY: ":5" # Good enough for proof-of-concept (but should be saved)
+
 parts:
   glxgears:
     plugin: nil
     stage-packages:
       - mesa-utils
+      - scrot
     stage-snaps: [mir-kiosk-x11]
     prime:
       - -hacks/setup-gl # Don't use the gl setup from mir-kiosk-x11, we use graphics-core20
