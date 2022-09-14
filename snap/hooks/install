@@ -1,0 +1,7 @@
+#!/bin/sh
+set -eux
+
+# we install with the daemon disabled
+# We will start and enable it if appropriate
+
+snapctl stop --disable "$SNAP_INSTANCE_NAME.daemon"

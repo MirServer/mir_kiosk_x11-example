@@ -43,11 +43,12 @@ apps:
   mir-kiosk-x11-example:
     command-chain: &_command-chain
       - env-setup
-    command: &_command usr/local/bin/x11_kiosk_launch glxgears
+    command: &_command usr/bin/xvfb-run --auto-servernum glxgears
     plugs: &_plugs
       - opengl         # For Mir
-      - wayland        # For Mir
       - network-bind   # For Mir (to serve X11)
+    environment:
+      HOME: $SNAP_USER_DATA
 
   daemon:
     daemon: simple
@@ -56,18 +57,27 @@ apps:
     command-chain: *_command-chain
     command: *_command
     plugs: *_plugs
+    environment:
+      HOME: $SNAP_DATA
 
 parts:
   glxgears:
     plugin: nil
     stage-packages:
       - mesa-utils
-    stage-snaps: [mir-kiosk-x11]
-    prime:
-      - -hacks/setup-gl # Don't use the gl setup from mir-kiosk-x11, we use graphics-core20
+
+  mir-kiosk-x11:
+    plugin: dump
+    source: mir-kiosk-x11
+
+  xvfb:
+    plugin: nil
+    stage-packages:
+     - xvfb
+     - util-linux
 
   cleanup:
-    after: [glxgears]
+    after: [glxgears, mir-kiosk-x11, xvfb]
     plugin: nil
     build-snaps: [ mesa-core20 ]
     override-prime: |
